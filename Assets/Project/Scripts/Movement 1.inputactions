@@ -7,15 +7,6 @@
             "id": "253d278c-c0a5-465c-ae4c-4d2963bfb69a",
             "actions": [
                 {
-                    "name": "Jump",
-                    "type": "Button",
-                    "id": "329167d3-edf8-4e35-ab18-4082f3187bac",
-                    "expectedControlType": "",
-                    "processors": "",
-                    "interactions": "",
-                    "initialStateCheck": false
-                },
-                {
                     "name": "Run",
                     "type": "Button",
                     "id": "6b9667d2-5bb3-43e9-8dd8-ea5cf7b39485",
@@ -71,17 +62,6 @@
                 }
             ],
             "bindings": [
-                {
-                    "name": "",
-                    "id": "4980449c-3a15-4fbb-8dc9-bac1e644803d",
-                    "path": "<Keyboard>/space",
-                    "interactions": "",
-                    "processors": "",
-                    "groups": "",
-                    "action": "Jump",
-                    "isComposite": false,
-                    "isPartOfComposite": false
-                },
                 {
                     "name": "",
                     "id": "d0e5a14f-c51e-4df7-94d8-b9f418101e5e",

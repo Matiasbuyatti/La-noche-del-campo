@@ -1,7 +1,6 @@
 
 using UnityEngine;
 using UnityEngine.InputSystem;
-using static Unity.Cinemachine.IInputAxisOwner.AxisDescriptor;
 
 public class PlayerFlashlightController : MonoBehaviour
 {
@@ -17,21 +16,58 @@ public class PlayerFlashlightController : MonoBehaviour
     [SerializeField] private float interactionRadius = 2.5f;
     [SerializeField] private LayerMask interactionLayers = ~0;
 
-    // Estos métodos se conectan desde PlayerInput > Events.
-
     public void OnInteract(InputAction.CallbackContext context)
     {
         if (!context.performed)
             return;
 
-        // Si ya tenemos una linterna en la mano o guardada,
-        // no intentamos recoger otra.
+        Transform origin = GetInteractionOrigin();
+
+        Collider[] hits = Physics.OverlapSphere(
+            origin.position,
+            interactionRadius,
+            interactionLayers,
+            QueryTriggerInteraction.Collide
+        );
+
+        FlashlightItem closest = null;
+        float closestDistance = float.MaxValue;
+
+        foreach (Collider hit in hits)
+        {
+            // Si hay un objeto coleccionable más cercano,
+            // dejamos que PlayerInteractor se encargue.
+            CollectibleItem collectible =
+                hit.GetComponentInParent<CollectibleItem>();
+
+            FlashlightItem candidate =
+                hit.GetComponentInParent<FlashlightItem>();
+
+            if (candidate == null || !candidate.IsOnGround)
+                continue;
+
+            // No considerar la linterna si el mismo collider
+            // pertenece también a un objeto coleccionable.
+            if (collectible != null)
+                continue;
+
+            float distance = Vector3.Distance(
+                origin.position,
+                candidate.transform.position
+            );
+
+            if (distance < closestDistance)
+            {
+                closestDistance = distance;
+                closest = candidate;
+            }
+        }
+
+        // No recoger otra linterna si ya tenemos una.
         if (flashlight != null && !flashlight.IsOnGround)
             return;
 
-        FlashlightItem nearby = FindNearbyFlashlight();
-
-        if (nearby == null)
+        if (closest == null)
         {
             Debug.Log("No hay ninguna linterna recogible cerca.", this);
             return;
@@ -43,7 +79,7 @@ public class PlayerFlashlightController : MonoBehaviour
             return;
         }
 
-        flashlight = nearby;
+        flashlight = closest;
         flashlight.PickUp(handAnchor);
 
         Debug.Log("Linterna recogida.", this);
@@ -93,49 +129,11 @@ public class PlayerFlashlightController : MonoBehaviour
         }
     }
 
-    private FlashlightItem FindNearbyFlashlight()
+    private Transform GetInteractionOrigin()
     {
-        Transform origin = interactionOrigin != null
+        return interactionOrigin != null
             ? interactionOrigin
             : transform;
-        Collider[] hits = Physics.OverlapSphere(
-            origin.position,
-            10f,
-            ~0,
-            QueryTriggerInteraction.Collide
-        );
-
-        Debug.Log(
-            $"Origen: {origin.position} | Colliders encontrados: {hits.Length}",
-            this
-        );
-        Debug.Log($"Colliders detectados cerca: {hits.Length}", this);
-
-        FlashlightItem closest = null;
-        float closestDistance = float.MaxValue;
-
-        foreach (Collider hit in hits)
-        {
-            FlashlightItem candidate =
-                hit.GetComponentInParent<FlashlightItem>();
-            Debug.Log($"Collider detectado: {hit.name}", hit);
-
-            if (candidate == null || !candidate.IsOnGround)
-                continue;
-
-            float distance = Vector3.Distance(
-                origin.position,
-                candidate.transform.position
-            );
-
-            if (distance < closestDistance)
-            {
-                closest = candidate;
-                closestDistance = distance;
-            }
-        }
-
-        return closest;
     }
 
     public bool HasFlashlightHeld()
@@ -151,11 +149,9 @@ public class PlayerFlashlightController : MonoBehaviour
 
     private void OnDrawGizmosSelected()
     {
-        Transform origin = interactionOrigin != null
-            ? interactionOrigin
-            : transform;
+        Transform origin = GetInteractionOrigin();
 
-        Gizmos.color = Color.yellow;
+        Gizmos.color = Color.cyan;
         Gizmos.DrawWireSphere(origin.position, interactionRadius);
     }
 }
