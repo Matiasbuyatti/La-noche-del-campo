@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 
 public class EmissionMaterialGlassTorchFadeOut : MonoBehaviour
 {
@@ -8,9 +8,9 @@ public class EmissionMaterialGlassTorchFadeOut : MonoBehaviour
     [Min(0f)]
     [SerializeField] private float emissionMultiplier = 1f;
 
+    private static readonly int EmissionColorId = Shader.PropertyToID("_EmissionColor");
+
     private Material materialInstance;
-    private static readonly int EmissionColorId =
-        Shader.PropertyToID("_EmissionColor");
 
     private void Awake()
     {
@@ -19,18 +19,14 @@ public class EmissionMaterialGlassTorchFadeOut : MonoBehaviour
 
         if (targetRenderer == null)
         {
-            Debug.LogWarning(
-                "EmissionMaterialGlassTorchFadeOut: falta un Renderer.",
-                this
-            );
             enabled = false;
             return;
         }
 
-        // Crea una instancia del material para no modificar el asset original.
+        // .material crea una instancia, así no se modifica el asset original.
         materialInstance = targetRenderer.material;
-
         materialInstance.EnableKeyword("_EMISSION");
+
         SetEmission(0f);
     }
 
@@ -39,24 +35,14 @@ public class EmissionMaterialGlassTorchFadeOut : MonoBehaviour
         if (materialInstance == null)
             return;
 
-        Color finalColor =
-            emissionColor * Mathf.Max(0f, intensity) * emissionMultiplier;
-
-        materialInstance.SetColor(EmissionColorId, finalColor);
+        materialInstance.SetColor(
+            EmissionColorId,
+            emissionColor * Mathf.Max(0f, intensity) * emissionMultiplier);
     }
 
-    public void OnEmission()
-    {
-        SetEmission(1f);
-    }
+    public void OnEmission() => SetEmission(1f);
 
-    public void OffEmission()
-    {
-        SetEmission(0f);
-    }
+    public void OffEmission() => SetEmission(0f);
 
-    public void TimeEmission(float intensity)
-    {
-        SetEmission(intensity);
-    }
+    public void TimeEmission(float intensity) => SetEmission(intensity);
 }

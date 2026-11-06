@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 
 public class ElectricTorchOnOff : MonoBehaviour
 {
@@ -26,37 +26,30 @@ public class ElectricTorchOnOff : MonoBehaviour
     public bool IsLightOn => flashLightOn;
     public float BatteryRemaining => batteryRemaining;
 
+    private bool UsesBattery => modoLightChoose == ModoLightChoose.withBattery;
+
     private void Awake()
     {
-        // Busca la luz en este objeto o en sus hijos.
         if (torchLight == null)
             torchLight = GetComponentInChildren<Light>(true);
 
         if (emissionMaterial == null)
-            emissionMaterial =
-                GetComponentInChildren<EmissionMaterialGlassTorchFadeOut>(true);
+            emissionMaterial = GetComponentInChildren<EmissionMaterialGlassTorchFadeOut>(true);
 
-        batteryRemaining = Mathf.Clamp(
-            batteryRemaining, 0f, batteryCapacity
-        );
+        batteryRemaining = Mathf.Clamp(batteryRemaining, 0f, batteryCapacity);
 
         SetLightState(false);
     }
 
     private void Update()
     {
-        if (!flashLightOn)
+        if (!flashLightOn || !UsesBattery)
             return;
 
-        // En el modo con batería, la linterna consume energía.
-        if (modoLightChoose == ModoLightChoose.withBattery)
-        {
-            batteryRemaining -= batteryDrainPerSecond * Time.deltaTime;
-            batteryRemaining = Mathf.Max(0f, batteryRemaining);
+        batteryRemaining = Mathf.Max(0f, batteryRemaining - batteryDrainPerSecond * Time.deltaTime);
 
-            if (batteryRemaining <= 0f)
-                SetLightState(false);
-        }
+        if (batteryRemaining <= 0f)
+            SetLightState(false);
     }
 
     public void ToggleLightState()
@@ -66,13 +59,9 @@ public class ElectricTorchOnOff : MonoBehaviour
 
     public void SetLightState(bool isOn)
     {
-        // No permite encender una linterna sin batería.
-        if (isOn &&
-            modoLightChoose == ModoLightChoose.withBattery &&
-            batteryRemaining <= 0f)
-        {
+        // Una linterna sin batería no se puede encender.
+        if (isOn && UsesBattery && batteryRemaining <= 0f)
             isOn = false;
-        }
 
         flashLightOn = isOn;
 
@@ -83,11 +72,7 @@ public class ElectricTorchOnOff : MonoBehaviour
         }
 
         if (emissionMaterial != null)
-        {
-            emissionMaterial.SetEmission(
-                flashLightOn ? intensityLight : 0f
-            );
-        }
+            emissionMaterial.SetEmission(flashLightOn ? intensityLight : 0f);
     }
 
     public void AddBattery(float amount)
@@ -95,11 +80,16 @@ public class ElectricTorchOnOff : MonoBehaviour
         if (amount <= 0f)
             return;
 
-        batteryRemaining = Mathf.Clamp(
-            batteryRemaining + amount,
-            0f,
-            batteryCapacity
-        );
+        batteryRemaining = Mathf.Clamp(batteryRemaining + amount, 0f, batteryCapacity);
+    }
+
+    public bool TryAddBattery(float amount)
+    {
+        if (!UsesBattery || amount <= 0f || batteryRemaining >= batteryCapacity)
+            return false;
+
+        AddBattery(amount);
+        return true;
     }
 
     public void SetIntensity(float newIntensity)

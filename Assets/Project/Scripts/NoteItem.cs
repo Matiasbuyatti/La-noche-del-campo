@@ -8,16 +8,21 @@ public class NoteItem : CollectibleItem
     [TextArea(5, 15)]
     [SerializeField] private string noteContent;
 
+    [Header("Audio")]
+    [SerializeField] private AudioClip vozNota;
+
     public string NoteTitle => noteTitle;
     public string NoteContent => noteContent;
+    public AudioClip VozNota => vozNota;
 
     public override void Collect()
     {
         if (Collected)
             return;
 
-        Debug.Log("Nota encontrada: " + noteTitle);
-
         base.Collect();
+
+        if (Collected)
+            AudioJuego.NotaRecogida(vozNota);
     }
 }

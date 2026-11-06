@@ -6,14 +6,4 @@ public class KeyItem : CollectibleItem
     [SerializeField] private string progressDescription;
 
     public string ProgressDescription => progressDescription;
-
-    public override void Collect()
-    {
-        if (Collected)
-            return;
-
-        Debug.Log("Objeto de progreso obtenido: " + ItemName);
-
-        base.Collect();
-    }
 }

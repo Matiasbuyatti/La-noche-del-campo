@@ -1,13 +1,14 @@
-
 using System.Collections;
 using UnityEngine;
-using UnityEngine.AI;
 
 public class Pombero : EnemySeguimiento
 {
     [Header("Animaciones")]
     [SerializeField] private Animator animator;
     [SerializeField] private string estadoAnimacionStun = "LightHit";
+
+    [Header("Audio")]
+    [SerializeField] private SfxVariado sfxStun;
 
     [Header("Velocidad de patrulla")]
     [SerializeField] private float velocidadPatrulla = 3.5f;
@@ -28,19 +29,15 @@ public class Pombero : EnemySeguimiento
     [SerializeField] private float tiempoEntreAtaques = 2f;
 
     private float temporizadorEntreAtaques;
-
     private bool impactoAplicado;
     private bool reaccionandoALinterna;
     private bool bloqueoLinterna;
-
     private Coroutine rutinaAtaque;
-    private Coroutine rutinaLinterna;
 
-    // Congelamiento del Transform
+    // Mientras reacciona a la linterna, LateUpdate mantiene el Transform congelado.
     private Vector3 posicionCongelada;
     private Quaternion rotacionCongelada;
     private bool posicionBloqueada;
-
     private bool rootMotionAnterior;
     private bool updatePositionAnterior;
     private bool updateRotationAnterior;
@@ -50,27 +47,21 @@ public class Pombero : EnemySeguimiento
         base.Start();
 
         SetAgentSpeed(velocidadPatrulla);
-
         OnWalk();
     }
 
     protected override void Update()
     {
-        if (agent == null ||
-            !agent.isActiveAndEnabled ||
-            !agent.isOnNavMesh)
+        if (agent == null || !agent.isActiveAndEnabled || !agent.isOnNavMesh ||
+            jugador == null || reaccionandoALinterna)
             return;
 
-        if (jugador == null)
-            return;
+        bool iluminado = IluminadoPorLinterna();
 
-        if (reaccionandoALinterna)
-            return;
-
-        if (bloqueoLinterna && !IluminadoPorLinterna())
+        if (bloqueoLinterna && !iluminado)
             bloqueoLinterna = false;
 
-        if (!bloqueoLinterna && IluminadoPorLinterna())
+        if (!bloqueoLinterna && iluminado)
         {
             ComenzarReaccionLinterna();
             return;
@@ -84,18 +75,9 @@ public class Pombero : EnemySeguimiento
 
     private void LateUpdate()
     {
-        if (!posicionBloqueada)
-            return;
-
-        transform.SetPositionAndRotation(
-            posicionCongelada,
-            rotacionCongelada
-        );
+        if (posicionBloqueada)
+            transform.SetPositionAndRotation(posicionCongelada, rotacionCongelada);
     }
-
-    // -----------------------------------------
-    // CONGELAMIENTO
-    // -----------------------------------------
 
     private void CongelarPosicion()
     {
@@ -126,10 +108,7 @@ public class Pombero : EnemySeguimiento
 
     private void DescongelarPosicion()
     {
-        transform.SetPositionAndRotation(
-            posicionCongelada,
-            rotacionCongelada
-        );
+        transform.SetPositionAndRotation(posicionCongelada, rotacionCongelada);
 
         if (agent != null && agent.isActiveAndEnabled)
         {
@@ -152,19 +131,9 @@ public class Pombero : EnemySeguimiento
         posicionBloqueada = false;
     }
 
-    // -----------------------------------------
-    // DETECCIÓN Y SEGUIMIENTO
-    // -----------------------------------------
+    protected override bool PuedeDetectarJugador() => JugadorVisible();
 
-    protected override bool PuedeDetectarJugador()
-    {
-        return JugadorVisible();
-    }
-
-    protected override bool PuedeContinuarPersiguiendo()
-    {
-        return false;
-    }
+    protected override bool PuedeContinuarPersiguiendo() => false;
 
     protected override bool DebeAbandonarPersecucion()
     {
@@ -179,15 +148,13 @@ public class Pombero : EnemySeguimiento
 
         if (EstaPatrullando())
             OnWalk();
-
-        if (EstaPersiguiendo())
+        else if (EstaPersiguiendo())
             OnRun();
     }
 
     protected override void ActualizarPersecucion()
     {
-        if (DistanciaAlJugador() <= distanciaAtaque &&
-            temporizadorEntreAtaques <= 0f)
+        if (DistanciaAlJugador() <= distanciaAtaque && temporizadorEntreAtaques <= 0f)
         {
             ComenzarAtaque();
             return;
@@ -197,8 +164,7 @@ public class Pombero : EnemySeguimiento
 
         if (EstaPersiguiendo())
             OnRun();
-
-        if (EstaBuscando())
+        else if (EstaBuscando())
             OnWalk();
     }
 
@@ -207,12 +173,12 @@ public class Pombero : EnemySeguimiento
         base.ComenzarPersecucion();
 
         OnRun();
+        AudioJuego.ReportarAmenaza(this, EstadoAmenaza.Persiguiendo);
     }
 
     protected override void ComenzarBusqueda()
     {
         base.ComenzarBusqueda();
-
         OnWalk();
     }
 
@@ -220,13 +186,9 @@ public class Pombero : EnemySeguimiento
     {
         base.ActualizarBusqueda();
 
-        if (EstaBuscando())
-            OnWalk();
-
         if (EstaPersiguiendo())
             OnRun();
-
-        if (EstaPatrullando())
+        else
             OnWalk();
     }
 
@@ -235,24 +197,19 @@ public class Pombero : EnemySeguimiento
         base.VolverAPatrulla();
 
         SetAgentSpeed(velocidadPatrulla);
-
         OnWalk();
-    }
 
-    // -----------------------------------------
-    // REACCIÓN A LA LINTERNA
-    // -----------------------------------------
+        AudioJuego.ReportarAmenaza(this, EstadoAmenaza.Ninguna);
+    }
 
     private void DetenerCompletamente()
     {
-        if (agent != null &&
-            agent.isActiveAndEnabled &&
-            agent.isOnNavMesh)
-        {
-            agent.isStopped = true;
-            agent.ResetPath();
-            agent.velocity = Vector3.zero;
-        }
+        if (agent == null || !agent.isActiveAndEnabled || !agent.isOnNavMesh)
+            return;
+
+        agent.isStopped = true;
+        agent.ResetPath();
+        agent.velocity = Vector3.zero;
     }
 
     private void ComenzarReaccionLinterna()
@@ -264,6 +221,10 @@ public class Pombero : EnemySeguimiento
         bloqueoLinterna = true;
 
         CambiarEstado(EstadoSeguimiento.Retirandose);
+        AudioJuego.ReportarAmenaza(this, EstadoAmenaza.Ninguna);
+
+        if (sfxStun != null)
+            sfxStun.Reproducir();
 
         tieneUltimaPosicion = false;
 
@@ -274,8 +235,6 @@ public class Pombero : EnemySeguimiento
         }
 
         DetenerCompletamente();
-
-        // Congelar posición y rotación antes de reproducir el stun.
         CongelarPosicion();
 
         if (animator != null)
@@ -285,70 +244,41 @@ public class Pombero : EnemySeguimiento
             animator.SetTrigger("LightHit");
         }
 
-        rutinaLinterna = StartCoroutine(RutinaReaccionLinterna());
+        StartCoroutine(RutinaReaccionLinterna());
     }
 
     private IEnumerator RutinaReaccionLinterna()
     {
         if (animator != null)
         {
-            // Esperar hasta que el Animator entre en LightHit.
-            while (!animator.GetCurrentAnimatorStateInfo(0)
-                       .IsName(estadoAnimacionStun))
-            {
+            while (!animator.GetCurrentAnimatorStateInfo(0).IsName(estadoAnimacionStun))
                 yield return null;
-            }
 
-            // Esperar a que termine LightHit y también
-            // la transición de salida hacia el siguiente estado.
-            while (true)
-            {
-                AnimatorStateInfo estado =
-                    animator.GetCurrentAnimatorStateInfo(0);
-
-                bool sigueEnStun =
-                    estado.IsName(estadoAnimacionStun);
-
-                bool estaEnTransicion =
-                    animator.IsInTransition(0);
-
-                if (!sigueEnStun && !estaEnTransicion)
-                    break;
-
+            while (animator.GetCurrentAnimatorStateInfo(0).IsName(estadoAnimacionStun) ||
+                   animator.IsInTransition(0))
                 yield return null;
-            }
         }
         else
         {
-            // Respaldo si no hay Animator asignado.
             yield return new WaitForSeconds(tiempoReaccionLinterna);
         }
 
         DescongelarPosicion();
 
         CambiarEstado(EstadoSeguimiento.Patrullando);
-
         SetAgentSpeed(velocidadPatrulla);
-
         ResumePatrolAtNextPoint();
-
         OnWalk();
 
         reaccionandoALinterna = false;
-        rutinaLinterna = null;
     }
-
-    // -----------------------------------------
-    // ATAQUE
-    // -----------------------------------------
 
     private void ComenzarAtaque()
     {
-        if (EstaAtacando())
+        if (estadoActual == EstadoSeguimiento.Atacando)
             return;
 
         CambiarEstado(EstadoSeguimiento.Atacando);
-
         DetenerCompletamente();
 
         Vector3 direccion = jugador.position - transform.position;
@@ -360,7 +290,6 @@ public class Pombero : EnemySeguimiento
         OnHit();
 
         impactoAplicado = false;
-
         rutinaAtaque = StartCoroutine(RutinaAtaque());
     }
 
@@ -373,24 +302,15 @@ public class Pombero : EnemySeguimiento
         yield return new WaitForSeconds(tiempoRecuperacion);
 
         temporizadorEntreAtaques = tiempoEntreAtaques;
-
         rutinaAtaque = null;
 
         if (jugador == null)
             yield break;
 
         if (DistanciaAlJugador() >= distanciaMaximaPersecucion)
-        {
             VolverAPatrulla();
-            yield break;
-        }
-
-        ComenzarPersecucion();
-    }
-
-    private bool EstaAtacando()
-    {
-        return estadoActual == EstadoSeguimiento.Atacando;
+        else
+            ComenzarPersecucion();
     }
 
     private void AplicarDanio()
@@ -403,85 +323,49 @@ public class Pombero : EnemySeguimiento
         if (DistanciaAlJugador() > distanciaAtaque + 0.4f)
             return;
 
-        IDamageable objetivo =
-            jugador.GetComponentInParent<IDamageable>();
+        IDamageable objetivo = jugador.GetComponentInParent<IDamageable>();
 
         if (objetivo == null)
             objetivo = jugador.GetComponentInChildren<IDamageable>();
 
         if (objetivo != null)
-        {
             objetivo.TakeDamage();
-            Debug.Log("El Pombero golpeó al jugador.", this);
-        }
-        else
-        {
-            Debug.LogWarning(
-                "El jugador no tiene un componente IDamageable.",
-                this
-            );
-        }
     }
-
-    // -----------------------------------------
-    // VISIÓN DEL JUGADOR
-    // -----------------------------------------
 
     private bool JugadorVisible()
     {
         Vector3 origen = transform.position + Vector3.up * 1.2f;
-        Vector3 destino = jugador.position + Vector3.up;
-
-        Vector3 direccion = destino - origen;
-
+        Vector3 direccion = jugador.position + Vector3.up - origen;
         float distancia = direccion.magnitude;
 
         if (distancia > radioVision)
             return false;
 
-        if (Vector3.Angle(transform.forward, direccion) >
-            anguloVision * 0.5f)
+        if (Vector3.Angle(transform.forward, direccion) > anguloVision * 0.5f)
             return false;
 
-        if (Physics.Raycast(
-            origen,
-            direccion.normalized,
-            out RaycastHit hit,
-            distancia,
-            obstaculosVision,
-            QueryTriggerInteraction.Ignore))
+        if (Physics.Raycast(origen, direccion.normalized, out RaycastHit hit, distancia,
+                obstaculosVision, QueryTriggerInteraction.Ignore))
         {
-            return hit.transform == jugador ||
-                   hit.transform.IsChildOf(jugador);
+            return hit.transform == jugador || hit.transform.IsChildOf(jugador);
         }
 
         return true;
     }
 
-    // -----------------------------------------
-    // DETECCIÓN DE LA LINTERNA
-    // -----------------------------------------
-
     private bool IluminadoPorLinterna()
     {
-        if (luzLinterna == null ||
-            !luzLinterna.enabled ||
-            !luzLinterna.gameObject.activeInHierarchy)
+        if (luzLinterna == null || !luzLinterna.enabled || !luzLinterna.gameObject.activeInHierarchy)
             return false;
 
         Vector3 origen = luzLinterna.transform.position;
-        Vector3 objetivo = transform.position + Vector3.up;
-
-        Vector3 direccion = objetivo - origen;
-
+        Vector3 direccion = transform.position + Vector3.up - origen;
         float distancia = direccion.magnitude;
 
         if (distancia > luzLinterna.range)
             return false;
 
-        if (Vector3.Angle(
-            luzLinterna.transform.forward,
-            direccion) > luzLinterna.spotAngle * 0.5f)
+        if (Vector3.Angle(luzLinterna.transform.forward, direccion) > luzLinterna.spotAngle * 0.5f)
             return false;
 
         RaycastHit[] impactos = Physics.RaycastAll(
@@ -489,32 +373,22 @@ public class Pombero : EnemySeguimiento
             direccion.normalized,
             distancia,
             Physics.DefaultRaycastLayers,
-            QueryTriggerInteraction.Ignore
-        );
+            QueryTriggerInteraction.Ignore);
 
-        System.Array.Sort(
-            impactos,
-            (a, b) => a.distance.CompareTo(b.distance)
-        );
+        System.Array.Sort(impactos, (a, b) => a.distance.CompareTo(b.distance));
 
         foreach (RaycastHit impacto in impactos)
         {
-            Transform hitTransform = impacto.transform;
+            Transform objeto = impacto.transform;
 
-            if (hitTransform == jugador ||
-                hitTransform.IsChildOf(jugador))
+            if (objeto == jugador || objeto.IsChildOf(jugador))
                 continue;
 
-            return hitTransform == transform ||
-                   hitTransform.IsChildOf(transform);
+            return objeto == transform || objeto.IsChildOf(transform);
         }
 
         return false;
     }
-
-    // -----------------------------------------
-    // ANIMACIONES
-    // -----------------------------------------
 
     private void OnWalk()
     {
@@ -544,25 +418,15 @@ public class Pombero : EnemySeguimiento
         animator.SetTrigger("Hit");
     }
 
-    // -----------------------------------------
-    // GIZMOS
-    // -----------------------------------------
-
     private void OnDrawGizmosSelected()
     {
         Gizmos.color = Color.yellow;
         Gizmos.DrawWireSphere(transform.position, radioVision);
 
         Gizmos.color = Color.red;
-        Gizmos.DrawWireSphere(
-            transform.position,
-            distanciaMaximaPersecucion
-        );
+        Gizmos.DrawWireSphere(transform.position, distanciaMaximaPersecucion);
 
         Gizmos.color = Color.cyan;
-        Gizmos.DrawWireSphere(
-            transform.position,
-            distanciaAtaque
-        );
+        Gizmos.DrawWireSphere(transform.position, distanciaAtaque);
     }
 }

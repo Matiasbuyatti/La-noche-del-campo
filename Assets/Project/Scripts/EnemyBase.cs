@@ -35,15 +35,10 @@ public class EnemyBase : MonoBehaviour
         PatrolUpdate();
     }
 
-    // Se llama desde Update en los enemigos que utilizan
-    // la patrulla normal de EnemyBase.
     protected bool PatrolUpdate()
     {
-        if (!patrolStarted || agent == null ||
-            !agent.isActiveAndEnabled || !agent.isOnNavMesh)
-            return false;
-
-        if (patrolPoints == null || patrolPoints.Length == 0)
+        if (!patrolStarted || agent == null || !agent.isActiveAndEnabled ||
+            !agent.isOnNavMesh || !HasValidPatrolPoints())
             return false;
 
         if (isWaiting)
@@ -70,8 +65,7 @@ public class EnemyBase : MonoBehaviour
 
     public virtual void StartPatrol()
     {
-        if (agent == null || patrolPoints == null ||
-            patrolPoints.Length == 0)
+        if (agent == null || !HasValidPatrolPoints())
         {
             Debug.LogWarning($"{name}: faltan puntos de patrulla.", this);
             return;
@@ -108,7 +102,6 @@ public class EnemyBase : MonoBehaviour
         agent.SetDestination(point.position);
     }
 
-    // Avanza al siguiente punto y comienza a desplazarse inmediatamente.
     protected void GoToNextPatrolPoint()
     {
         if (!HasValidPatrolPoints())
@@ -163,8 +156,7 @@ public class EnemyBase : MonoBehaviour
         agent.ResetPath();
     }
 
-    // Permite volver a patrullar desde el siguiente punto
-    // después de interrumpir una persecución.
+    // Retoma la patrulla desde el siguiente punto tras interrumpir una persecución.
     protected void ResumePatrolAtNextPoint()
     {
         if (!HasValidPatrolPoints())

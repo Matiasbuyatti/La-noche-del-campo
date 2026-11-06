@@ -1,4 +1,3 @@
-
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -21,6 +20,9 @@ public class PlayerHealth : MonoBehaviour, IDamageable
     [Header("Al morir")]
     [SerializeField] private MonoBehaviour[] controlsToDisable;
 
+    [Header("Audio")]
+    [SerializeField] private SfxVariado sfxGolpe;
+
     private int hitsReceived;
     private bool isDead;
 
@@ -30,14 +32,9 @@ public class PlayerHealth : MonoBehaviour, IDamageable
 
     private void Start()
     {
-        if (damageOverlay != null)
-            SetAlpha(damageOverlay, 0f);
-
-        if (woundMarks != null)
-            SetAlpha(woundMarks, 0f);
-
-        if (darkOverlay != null)
-            SetAlpha(darkOverlay, 0f);
+        SetAlpha(damageOverlay, 0f);
+        SetAlpha(woundMarks, 0f);
+        SetAlpha(darkOverlay, 0f);
 
         if (deathPanel != null)
             deathPanel.SetActive(false);
@@ -53,44 +50,33 @@ public class PlayerHealth : MonoBehaviour, IDamageable
         if (isDead)
             return;
 
+        if (sfxGolpe != null)
+            sfxGolpe.Reproducir();
+
         hitsReceived = Mathf.Min(hitsReceived + 1, maxHits);
 
         if (hitsReceived >= maxHits)
-        {
             Die();
-            return;
-        }
-
-        UpdateDamageVisuals();
+        else
+            UpdateDamageVisuals();
     }
 
     private void UpdateDamageVisuals()
     {
         if (hitsReceived == 1)
-        {
-            if (damageOverlay != null)
-                SetAlpha(damageOverlay, redAlpha);
-        }
+            SetAlpha(damageOverlay, redAlpha);
 
         if (hitsReceived == 2 && maxHits >= 4)
         {
-            if (damageOverlay != null)
-                SetAlpha(damageOverlay, redAlpha);
-
-            if (woundMarks != null)
-                SetAlpha(woundMarks, redMarksAlpha);
+            SetAlpha(damageOverlay, redAlpha);
+            SetAlpha(woundMarks, redMarksAlpha);
         }
 
         if (hitsReceived == maxHits - 1)
         {
-            if (damageOverlay != null)
-                SetAlpha(damageOverlay, 0f);
-
-            if (woundMarks != null)
-                SetAlpha(woundMarks, 0f);
-
-            if (darkOverlay != null)
-                SetAlpha(darkOverlay, darkAlpha);
+            SetAlpha(damageOverlay, 0f);
+            SetAlpha(woundMarks, 0f);
+            SetAlpha(darkOverlay, darkAlpha);
         }
     }
 
@@ -98,14 +84,9 @@ public class PlayerHealth : MonoBehaviour, IDamageable
     {
         isDead = true;
 
-        if (damageOverlay != null)
-            SetAlpha(damageOverlay, 0f);
-
-        if (woundMarks != null)
-            SetAlpha(woundMarks, 0f);
-
-        if (darkOverlay != null)
-            SetAlpha(darkOverlay, 1f);
+        SetAlpha(damageOverlay, 0f);
+        SetAlpha(woundMarks, 0f);
+        SetAlpha(darkOverlay, 1f);
 
         if (deathPanel != null)
             deathPanel.SetActive(true);
@@ -115,12 +96,13 @@ public class PlayerHealth : MonoBehaviour, IDamageable
             if (control != null)
                 control.enabled = false;
         }
-
-        Debug.Log("El jugador ha muerto.");
     }
 
-    private void SetAlpha(Image image, float alpha)
+    private static void SetAlpha(Image image, float alpha)
     {
+        if (image == null)
+            return;
+
         Color color = image.color;
         color.a = alpha;
         image.color = color;

@@ -1,7 +1,5 @@
-
 using System.Collections;
 using UnityEngine;
-using UnityEngine.AI;
 
 public class Lobison : EnemyBase
 {
@@ -22,6 +20,7 @@ public class Lobison : EnemyBase
     [SerializeField] private bool detectarMovimiento = true;
     [SerializeField] private float radioMovimiento = 12f;
     [SerializeField] private float velocidadMinimaDeteccion = 0.15f;
+    [SerializeField] private float tiempoMemoriaMovimiento = 0.3f;
 
     [Header("Detección de luz")]
     [SerializeField] private bool detectarLuz = true;
@@ -46,18 +45,21 @@ public class Lobison : EnemyBase
     [SerializeField] private string parametroCorrer = "Run";
     [SerializeField] private string triggerAtaque = "Hit";
 
+    [Header("Audio")]
+    [SerializeField] private SfxVariado sfxGrunido;
+
     private Estado estadoActual = Estado.Patrullando;
 
     private Vector3 ultimaPosicionJugador;
     private Vector3 posicionAnteriorJugador;
+    private float velocidadActualJugador;
 
     private float temporizadorBusqueda;
+    private float temporizadorMovimiento;
     private float temporizadorEntreAtaques;
 
     private bool tieneUltimaPosicion;
     private bool impactoAplicado;
-
-    private Coroutine rutinaAtaque;
 
     protected override void Start()
     {
@@ -75,21 +77,20 @@ public class Lobison : EnemyBase
 
     protected override void Update()
     {
-        if (agent == null ||
-            !agent.isActiveAndEnabled ||
-            !agent.isOnNavMesh ||
-            jugador == null)
+        if (agent == null || !agent.isActiveAndEnabled || !agent.isOnNavMesh || jugador == null)
             return;
 
         if (temporizadorEntreAtaques > 0f)
             temporizadorEntreAtaques -= Time.deltaTime;
 
-        // Medimos el movimiento real del jugador.
-        bool jugadorSeMueve = JugadorSeEstaMoviendo();
+        // Se recuerda el movimiento unos instantes para evitar cortes de un solo frame.
+        if (JugadorSeEstaMoviendo())
+            temporizadorMovimiento = tiempoMemoriaMovimiento;
+        else if (temporizadorMovimiento > 0f)
+            temporizadorMovimiento -= Time.deltaTime;
 
-        // Comprobamos si existe alguna señal detectable.
         bool jugadorDetectado =
-            EstaDetectandoMovimiento(jugadorSeMueve) ||
+            EstaDetectandoMovimiento(temporizadorMovimiento > 0f) ||
             EstaDetectandoLuz();
 
         switch (estadoActual)
@@ -105,127 +106,86 @@ public class Lobison : EnemyBase
             case Estado.Buscando:
                 ActualizarBusqueda(jugadorDetectado);
                 break;
-
-            case Estado.Atacando:
-                // La coroutine controla el ataque.
-                break;
         }
     }
 
-    // -----------------------------------------
-    // DETECCIÓN DE MOVIMIENTO
-    // -----------------------------------------
+    private float DistanciaAlJugador()
+    {
+        return Vector3.Distance(transform.position, jugador.position);
+    }
 
     private bool JugadorSeEstaMoviendo()
     {
-        if (jugador == null || Time.deltaTime <= 0f)
+        if (Time.deltaTime <= 0f)
             return false;
 
-        Vector3 desplazamiento =
-            jugador.position - posicionAnteriorJugador;
-
+        Vector3 desplazamiento = jugador.position - posicionAnteriorJugador;
         desplazamiento.y = 0f;
 
-        float velocidad =
-            desplazamiento.magnitude / Time.deltaTime;
-
+        velocidadActualJugador = desplazamiento.magnitude / Time.deltaTime;
         posicionAnteriorJugador = jugador.position;
 
-        return velocidad >= velocidadMinimaDeteccion;
+        return velocidadActualJugador >= velocidadMinimaDeteccion;
     }
 
     private bool EstaDetectandoMovimiento(bool jugadorSeMueve)
     {
-        if (!detectarMovimiento || !jugadorSeMueve)
-            return false;
-
-        float distancia =
-            Vector3.Distance(transform.position, jugador.position);
-
-        return distancia <= radioMovimiento;
+        return detectarMovimiento && jugadorSeMueve && DistanciaAlJugador() <= radioMovimiento;
     }
-
-    // -----------------------------------------
-    // DETECCIÓN DE LUZ
-    // -----------------------------------------
 
     private bool EstaDetectandoLuz()
     {
-        if (!detectarLuz ||
-            luzLinterna == null ||
-            !luzLinterna.enabled ||
+        if (!detectarLuz || luzLinterna == null || !luzLinterna.enabled ||
             !luzLinterna.gameObject.activeInHierarchy)
             return false;
 
         Vector3 origen = luzLinterna.transform.position;
-        Vector3 objetivo = transform.position + Vector3.up;
-
-        Vector3 direccion = objetivo - origen;
-
+        Vector3 direccion = transform.position + Vector3.up - origen;
         float distancia = direccion.magnitude;
 
         if (distancia > radioLuz)
             return false;
 
-        // Comprueba si el Lobisón está dentro del cono de luz.
-        if (Vector3.Angle(
-            luzLinterna.transform.forward,
-            direccion) > luzLinterna.spotAngle * 0.5f)
+        if (Vector3.Angle(luzLinterna.transform.forward, direccion) > luzLinterna.spotAngle * 0.5f)
             return false;
 
-        // Comprueba que no haya obstáculos entre la luz y el enemigo.
         RaycastHit[] impactos = Physics.RaycastAll(
             origen,
             direccion.normalized,
             distancia,
             Physics.DefaultRaycastLayers,
-            QueryTriggerInteraction.Ignore
-        );
+            QueryTriggerInteraction.Ignore);
 
-        System.Array.Sort(
-            impactos,
-            (a, b) => a.distance.CompareTo(b.distance)
-        );
+        System.Array.Sort(impactos, (a, b) => a.distance.CompareTo(b.distance));
 
         foreach (RaycastHit impacto in impactos)
         {
-            Transform hitTransform = impacto.transform;
+            Transform objeto = impacto.transform;
 
-            // Ignoramos los colliders del jugador.
-            if (hitTransform == jugador ||
-                hitTransform.IsChildOf(jugador))
+            if (objeto == jugador || objeto.IsChildOf(jugador))
                 continue;
 
-            // El primer objeto que recibe la luz debe ser el Lobisón.
-            return hitTransform == transform ||
-                   hitTransform.IsChildOf(transform);
+            return objeto == transform || objeto.IsChildOf(transform);
         }
 
         return false;
     }
 
-    // -----------------------------------------
-    // PATRULLA
-    // -----------------------------------------
-
     private void ActualizarPatrulla(bool jugadorDetectado)
     {
         if (jugadorDetectado)
         {
+            if (sfxGrunido != null)
+                sfxGrunido.Reproducir();
+
             ComenzarPersecucion();
             return;
         }
 
         SetAgentSpeed(velocidadPatrulla);
-
         PatrolUpdate();
-
         OnWalk();
     }
-
-    // -----------------------------------------
-    // PERSECUCIÓN
-    // -----------------------------------------
 
     private void ComenzarPersecucion()
     {
@@ -237,12 +197,12 @@ public class Lobison : EnemyBase
         SetAgentDestination(jugador.position);
 
         OnRun();
+        AudioJuego.ReportarAmenaza(this, EstadoAmenaza.Persiguiendo);
     }
 
     private void ActualizarPersecucion(bool jugadorDetectado)
     {
-        float distancia =
-            Vector3.Distance(transform.position, jugador.position);
+        float distancia = DistanciaAlJugador();
 
         if (distancia >= distanciaMaximaPersecucion)
         {
@@ -250,26 +210,24 @@ public class Lobison : EnemyBase
             return;
         }
 
-        if (distancia <= distanciaAtaque &&
-            temporizadorEntreAtaques <= 0f)
+        if (distancia <= distanciaAtaque && temporizadorEntreAtaques <= 0f)
         {
             ComenzarAtaque();
             return;
         }
 
-        if (jugadorDetectado)
-        {
-            ActualizarUltimaPosicion();
-
-            SetAgentSpeed(velocidadPersecucion);
-            SetAgentDestination(jugador.position);
-
-            OnRun();
-        }
-        else
+        if (!jugadorDetectado)
         {
             ComenzarBusqueda();
+            return;
         }
+
+        ActualizarUltimaPosicion();
+
+        SetAgentSpeed(velocidadPersecucion);
+        SetAgentDestination(jugador.position);
+
+        OnRun();
     }
 
     private void ActualizarUltimaPosicion()
@@ -277,10 +235,6 @@ public class Lobison : EnemyBase
         ultimaPosicionJugador = jugador.position;
         tieneUltimaPosicion = true;
     }
-
-    // -----------------------------------------
-    // BÚSQUEDA
-    // -----------------------------------------
 
     private void ComenzarBusqueda()
     {
@@ -293,6 +247,7 @@ public class Lobison : EnemyBase
         SetAgentSpeed(velocidadPersecucion);
 
         OnWalk();
+        AudioJuego.ReportarAmenaza(this, EstadoAmenaza.Buscando);
     }
 
     private void ActualizarBusqueda(bool jugadorDetectado)
@@ -305,38 +260,24 @@ public class Lobison : EnemyBase
 
         temporizadorBusqueda -= Time.deltaTime;
 
-        if (tieneUltimaPosicion &&
-            HasReachedDestination())
-        {
+        if (tieneUltimaPosicion && HasReachedDestination())
             StopAgent();
-        }
 
         if (temporizadorBusqueda <= 0f)
-        {
             VolverAPatrulla();
-        }
     }
-
-    // -----------------------------------------
-    // VOLVER A PATRULLAR
-    // -----------------------------------------
 
     private void VolverAPatrulla()
     {
         estadoActual = Estado.Patrullando;
-
         tieneUltimaPosicion = false;
 
         SetAgentSpeed(velocidadPatrulla);
-
         ResumePatrolAtNextPoint();
 
         OnWalk();
+        AudioJuego.ReportarAmenaza(this, EstadoAmenaza.Ninguna);
     }
-
-    // -----------------------------------------
-    // ATAQUE
-    // -----------------------------------------
 
     private void ComenzarAtaque()
     {
@@ -347,7 +288,6 @@ public class Lobison : EnemyBase
 
         StopAgent();
 
-        // Girar hacia el jugador.
         Vector3 direccion = jugador.position - transform.position;
         direccion.y = 0f;
 
@@ -357,8 +297,7 @@ public class Lobison : EnemyBase
         OnAttack();
 
         impactoAplicado = false;
-
-        rutinaAtaque = StartCoroutine(RutinaAtaque());
+        StartCoroutine(RutinaAtaque());
     }
 
     private IEnumerator RutinaAtaque()
@@ -371,34 +310,24 @@ public class Lobison : EnemyBase
 
         temporizadorEntreAtaques = tiempoEntreAtaques;
 
-        rutinaAtaque = null;
-
         if (jugador == null)
             yield break;
 
-        float distancia =
-            Vector3.Distance(transform.position, jugador.position);
-
-        if (distancia >= distanciaMaximaPersecucion)
+        if (DistanciaAlJugador() >= distanciaMaximaPersecucion)
         {
             VolverAPatrulla();
             yield break;
         }
 
-        // Si todavía detecta al jugador, continúa persiguiendo.
-        // Si no, busca su última posición.
         bool detectado =
-            EstaDetectandoMovimiento(
-                velocidadActualJugador >= velocidadMinimaDeteccion
-            ) || EstaDetectandoLuz();
+            EstaDetectandoMovimiento(velocidadActualJugador >= velocidadMinimaDeteccion) ||
+            EstaDetectandoLuz();
 
         if (detectado)
             ComenzarPersecucion();
         else
             ComenzarBusqueda();
     }
-
-    private float velocidadActualJugador;
 
     private void AplicarDanio()
     {
@@ -407,34 +336,17 @@ public class Lobison : EnemyBase
 
         impactoAplicado = true;
 
-        if (Vector3.Distance(transform.position, jugador.position) >
-            distanciaAtaque + 0.4f)
+        if (DistanciaAlJugador() > distanciaAtaque + 0.4f)
             return;
 
-        IDamageable objetivo =
-            jugador.GetComponentInParent<IDamageable>();
+        IDamageable objetivo = jugador.GetComponentInParent<IDamageable>();
 
         if (objetivo == null)
             objetivo = jugador.GetComponentInChildren<IDamageable>();
 
         if (objetivo != null)
-        {
             objetivo.TakeDamage();
-
-            Debug.Log("El Lobisón golpeó al jugador.", this);
-        }
-        else
-        {
-            Debug.LogWarning(
-                "El jugador no tiene un componente IDamageable.",
-                this
-            );
-        }
     }
-
-    // -----------------------------------------
-    // ANIMACIONES
-    // -----------------------------------------
 
     private void OnWalk()
     {
@@ -461,13 +373,8 @@ public class Lobison : EnemyBase
 
         animator.SetBool(parametroCaminar, false);
         animator.SetBool(parametroCorrer, false);
-
         animator.SetTrigger(triggerAtaque);
     }
-
-    // -----------------------------------------
-    // GIZMOS
-    // -----------------------------------------
 
     private void OnDrawGizmosSelected()
     {
@@ -478,15 +385,9 @@ public class Lobison : EnemyBase
         Gizmos.DrawWireSphere(transform.position, radioLuz);
 
         Gizmos.color = Color.red;
-        Gizmos.DrawWireSphere(
-            transform.position,
-            distanciaMaximaPersecucion
-        );
+        Gizmos.DrawWireSphere(transform.position, distanciaMaximaPersecucion);
 
         Gizmos.color = Color.magenta;
-        Gizmos.DrawWireSphere(
-            transform.position,
-            distanciaAtaque
-        );
+        Gizmos.DrawWireSphere(transform.position, distanciaAtaque);
     }
 }
