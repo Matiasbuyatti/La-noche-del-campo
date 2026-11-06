@@ -1,3 +1,4 @@
+
 using UnityEngine;
 
 public class NoteItem : CollectibleItem
@@ -13,7 +14,6 @@ public class NoteItem : CollectibleItem
 
     public string NoteTitle => noteTitle;
     public string NoteContent => noteContent;
-    public AudioClip VozNota => vozNota;
 
     public override void Collect()
     {
@@ -23,6 +23,8 @@ public class NoteItem : CollectibleItem
         base.Collect();
 
         if (Collected)
+        {
             AudioJuego.NotaRecogida(vozNota);
+        }
     }
 }

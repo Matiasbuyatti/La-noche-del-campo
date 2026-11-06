@@ -25,6 +25,9 @@ public class InventoryUIController : MonoBehaviour
     [SerializeField] private TMP_Text selectedItemDescriptionText;
     [SerializeField] private Image selectedItemIcon;
 
+    [Header("Lector de documentos")]
+    [SerializeField] private DocumentReaderPanel documentReaderPanel;
+
     [Header("Acciones")]
     [SerializeField] private Button useItemButton;
 
@@ -156,6 +159,7 @@ public class InventoryUIController : MonoBehaviour
             ClearSelectedItem();
     }
 
+
     private void SelectItem(CollectibleItem item)
     {
         selectedItem = item;
@@ -175,8 +179,26 @@ public class InventoryUIController : MonoBehaviour
         if (useItemButton != null)
             useItemButton.interactable = item.CanUse;
 
+        // Si seleccionamos una nota, abrimos el lector.
+        if (item is NoteItem note && currentCategory == InventoryCategory.Documents)
+        {
+            if (documentReaderPanel != null)
+            {
+                CloseInventory();
+                documentReaderPanel.AbrirDocumento(
+                    note.NoteTitle,
+                    note.NoteContent
+                );
+            }
+            else
+            {
+                Debug.LogWarning("No asignaste Document Reader Panel en InventoryUIController.");
+            }
+        }
+
         RefreshInventory();
     }
+
 
     private void ClearSelectedItem()
     {

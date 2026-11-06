@@ -3,6 +3,7 @@ using UnityEngine;
 
 public class Door : MonoBehaviour
 {
+
     [Header("Llave")]
     [SerializeField] private string requiredKeyId = "llave_galpon";
 
@@ -22,6 +23,7 @@ public class Door : MonoBehaviour
     private bool isOpening;
     private bool isOpen;
 
+
     private void Awake()
     {
         if (doorTransform != null)
@@ -30,6 +32,7 @@ public class Door : MonoBehaviour
 
     public void Interact()
     {
+        Debug.Log($"Door.Interact | abriendo:{isOpening} abierta:{isOpen} doorTransform:{doorTransform != null} inventario:{InventoryManager.Instance != null} tieneLlave:{InventoryManager.Instance != null && InventoryManager.Instance.HasItem(requiredKeyId)} id:'{requiredKeyId}'", this);
         if (isOpening || isOpen || doorTransform == null || InventoryManager.Instance == null)
             return;
 

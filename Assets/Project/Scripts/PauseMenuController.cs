@@ -156,7 +156,7 @@ public class PauseMenuController : MonoBehaviour
         LoadScene(SceneManager.GetActiveScene().buildIndex);
     }
 
-    private void GoToMainMenu()
+    public void GoToMainMenu()
     {
         LoadScene(MainMenuSceneIndex);
     }

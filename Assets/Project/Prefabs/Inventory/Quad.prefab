@@ -664,11 +664,11 @@ ParticleSystem:
   ShapeModule:
     serializedVersion: 6
     enabled: 1
-    type: 4
+    type: 8
     angle: 25
     length: 5
     boxThickness: {x: 0, y: 0, z: 0}
-    radiusThickness: 0.3
+    radiusThickness: 1
     donutRadius: 0.2
     m_Position: {x: 0, y: 0, z: 0}
     m_Rotation: {x: 0, y: 0, z: 0}
@@ -4976,3 +4976,4 @@ MonoBehaviour:
     de frente: la luz lo traba, lo deja tieso como espantap\xE1jaros. Pero no te
     quedes mirando. Es solo un ratito."
   vozNota: {fileID: 8300000, guid: ba271e09e48a5204c9a94cf6b79ad95e, type: 3}
+  notesCounter: {fileID: 0}

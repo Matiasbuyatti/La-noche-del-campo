@@ -12,6 +12,7 @@ public class PlayerInteractor : MonoBehaviour
 
     private CollectibleItem currentItem;
     private WellInteraction currentWell;
+    private Door currentDoor;
 
     private Transform Origin => interactionOrigin != null ? interactionOrigin : transform;
 
@@ -27,7 +28,7 @@ public class PlayerInteractor : MonoBehaviour
 
         DetectInteractables();
 
-        // Los objetos recogibles tienen prioridad sobre el pozo.
+        // Los objetos recogibles tienen prioridad; entre pozo y puerta gana el más cercano.
         if (currentItem != null)
         {
             currentItem.Collect();
@@ -37,12 +38,18 @@ public class PlayerInteractor : MonoBehaviour
         {
             currentWell.Interact();
         }
+        else if (currentDoor != null)
+        {
+            currentDoor.Interact();
+        }
     }
 
     private void DetectInteractables()
     {
+       
         currentItem = null;
         currentWell = null;
+        currentDoor = null;
 
         Vector3 origin = Origin.position;
 
@@ -54,6 +61,7 @@ public class PlayerInteractor : MonoBehaviour
 
         float closestItemDistance = float.MaxValue;
         float closestWellDistance = float.MaxValue;
+        float closestDoorDistance = float.MaxValue;
 
         foreach (Collider hit in hits)
         {
@@ -84,10 +92,33 @@ public class PlayerInteractor : MonoBehaviour
                     currentWell = well;
                 }
             }
+
+            Door door = hit.GetComponentInParent<Door>();
+
+            if (door != null)
+            {
+                float distance = Vector3.Distance(origin, door.transform.position);
+
+                if (distance < closestDoorDistance)
+                {
+                    closestDoorDistance = distance;
+                    currentDoor = door;
+                }
+            }
         }
 
         if (currentItem != null)
+        {
             currentWell = null;
+            currentDoor = null;
+        }
+        else if (currentWell != null && currentDoor != null)
+        {
+            if (closestWellDistance <= closestDoorDistance)
+                currentDoor = null;
+            else
+                currentWell = null;
+        }
     }
 
     private void OnDrawGizmosSelected()

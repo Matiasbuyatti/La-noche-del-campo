@@ -1,3 +1,4 @@
+
 using System;
 using System.Collections.Generic;
 using UnityEngine;
@@ -49,10 +50,14 @@ public class InventoryManager : MonoBehaviour
 
         items.Add(item);
 
+        // Contar la nota solamente cuando se agrega correctamente.
         if (item is NoteItem && notesCounterUI != null)
+        {
             notesCounterUI.RegisterNote();
+        }
 
         OnInventoryChanged?.Invoke();
+
         return true;
     }
 
@@ -80,6 +85,7 @@ public class InventoryManager : MonoBehaviour
 
         items.Remove(item);
         OnInventoryChanged?.Invoke();
+
         return true;
     }
 }
