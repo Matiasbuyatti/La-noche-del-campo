@@ -5,8 +5,14 @@ public abstract class CollectibleItem : MonoBehaviour
     [Header("Información del objeto")]
     [SerializeField] protected string itemId;
     [SerializeField] protected string itemName;
+
     [TextArea]
     [SerializeField] protected string description;
+
+    [Header("Inventario")]
+    [SerializeField] private InventoryCategory inventoryCategory;
+    [SerializeField] private Sprite inventoryIcon;
+    [SerializeField] private bool canUse;
 
     [Header("Objetivo relacionado")]
     [SerializeField] protected ObjectiveManager objectiveManager;
@@ -18,23 +24,33 @@ public abstract class CollectibleItem : MonoBehaviour
     public string ItemName => itemName;
     public string Description => description;
     public bool Collected => collected;
+    public InventoryCategory Category => inventoryCategory;
+    public Sprite InventoryIcon => inventoryIcon;
+    public bool CanUse => canUse;
 
     public virtual void Collect()
     {
         if (collected)
             return;
 
-        collected = true;
-
-        // Actualiza el objetivo relacionado, si existe.
-        if (objectiveManager != null && !string.IsNullOrEmpty(objectiveId))
+        if (InventoryManager.Instance == null)
         {
-            objectiveManager.CompleteObjective(objectiveId);
+            Debug.LogError($"No existe InventoryManager en la escena. No se pudo recoger: {itemName}");
+            return;
         }
 
-        Debug.Log("Objeto recogido: " + itemName);
+        if (!InventoryManager.Instance.AddItem(this))
+            return;
 
-        // Desaparece del escenario.
+        collected = true;
+
+        if (objectiveManager != null && !string.IsNullOrEmpty(objectiveId))
+            objectiveManager.CompleteObjective(objectiveId);
+
         gameObject.SetActive(false);
+    }
+
+    public virtual void UseItem()
+    {
     }
 }

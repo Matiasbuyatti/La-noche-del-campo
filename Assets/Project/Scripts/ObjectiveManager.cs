@@ -19,7 +19,6 @@ public class ObjectiveManager : MonoBehaviour
     [Header("Lista de objetivos")]
     [SerializeField] private List<Objective> objectives = new List<Objective>();
 
-    // Evento para avisar a la interfaz que debe actualizarse.
     public event Action OnObjectivesChanged;
 
     public List<Objective> Objectives => objectives;
@@ -31,11 +30,11 @@ public class ObjectiveManager : MonoBehaviour
 
     public void CompleteObjective(string objectiveId)
     {
-        Objective objective = objectives.Find(o => o.id == objectiveId);
+        Objective objective = GetObjective(objectiveId);
 
         if (objective == null)
         {
-            Debug.LogWarning("No existe el objetivo: " + objectiveId);
+            Debug.LogWarning($"No existe el objetivo: {objectiveId}");
             return;
         }
 
@@ -43,9 +42,6 @@ public class ObjectiveManager : MonoBehaviour
             return;
 
         objective.completed = true;
-
-        Debug.Log("Objetivo completado: " + objective.title);
-
         NotifyObjectivesChanged();
     }
 
@@ -56,8 +52,7 @@ public class ObjectiveManager : MonoBehaviour
 
     public bool IsObjectiveCompleted(string objectiveId)
     {
-        Objective objective = objectives.Find(o => o.id == objectiveId);
-
+        Objective objective = GetObjective(objectiveId);
         return objective != null && objective.completed;
     }
 

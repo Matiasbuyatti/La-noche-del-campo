@@ -1,4 +1,5 @@
 
+using System.Collections;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -6,6 +7,9 @@ public class PlayerHealth : MonoBehaviour, IDamageable
 {
     [Header("Vida")]
     [SerializeField, Min(1)] private int maxHits = 4;
+
+    [Header("Recuperacion")]
+    [SerializeField] private float tiempoRecuperacion = 6f;
 
     [Header("UI de daño")]
     [SerializeField] private Image damageOverlay;
@@ -21,8 +25,12 @@ public class PlayerHealth : MonoBehaviour, IDamageable
     [Header("Al morir")]
     [SerializeField] private MonoBehaviour[] controlsToDisable;
 
+    [Header("Audio")]
+    [SerializeField] private SfxVariado sfxGolpe;
+
     private int hitsReceived;
     private bool isDead;
+    private Coroutine recoveryCoroutine;
 
     public int HitsReceived => hitsReceived;
     public int HitsRemaining => Mathf.Max(0, maxHits - hitsReceived);
@@ -30,14 +38,7 @@ public class PlayerHealth : MonoBehaviour, IDamageable
 
     private void Start()
     {
-        if (damageOverlay != null)
-            SetAlpha(damageOverlay, 0f);
-
-        if (woundMarks != null)
-            SetAlpha(woundMarks, 0f);
-
-        if (darkOverlay != null)
-            SetAlpha(darkOverlay, 0f);
+        ResetDamageVisuals();
 
         if (deathPanel != null)
             deathPanel.SetActive(false);
@@ -53,7 +54,12 @@ public class PlayerHealth : MonoBehaviour, IDamageable
         if (isDead)
             return;
 
+        if (sfxGolpe != null)
+            sfxGolpe.Reproducir();
+
         hitsReceived = Mathf.Min(hitsReceived + 1, maxHits);
+
+        UpdateDamageVisuals();
 
         if (hitsReceived >= maxHits)
         {
@@ -61,66 +67,77 @@ public class PlayerHealth : MonoBehaviour, IDamageable
             return;
         }
 
-        UpdateDamageVisuals();
+        // Cada nuevo golpe reinicia el tiempo de recuperación.
+        if (recoveryCoroutine != null)
+            StopCoroutine(recoveryCoroutine);
+
+        recoveryCoroutine = StartCoroutine(RecoverAfterTime());
+    }
+
+    private IEnumerator RecoverAfterTime()
+    {
+        yield return new WaitForSeconds(tiempoRecuperacion);
+
+        hitsReceived = 0;
+        ResetDamageVisuals();
+
+        recoveryCoroutine = null;
     }
 
     private void UpdateDamageVisuals()
     {
         if (hitsReceived == 1)
-        {
-            if (damageOverlay != null)
-                SetAlpha(damageOverlay, redAlpha);
-        }
+            SetAlpha(damageOverlay, redAlpha);
 
         if (hitsReceived == 2 && maxHits >= 4)
-        {
-            if (damageOverlay != null)
-                SetAlpha(damageOverlay, redAlpha);
-
-            if (woundMarks != null)
-                SetAlpha(woundMarks, redMarksAlpha);
-        }
+            SetAlpha(woundMarks, redMarksAlpha);
 
         if (hitsReceived == maxHits - 1)
         {
-            if (damageOverlay != null)
-                SetAlpha(damageOverlay, 0f);
-
-            if (woundMarks != null)
-                SetAlpha(woundMarks, 0f);
-
-            if (darkOverlay != null)
-                SetAlpha(darkOverlay, darkAlpha);
+            SetAlpha(damageOverlay, 0f);
+            SetAlpha(woundMarks, 0f);
+            SetAlpha(darkOverlay, darkAlpha);
         }
+    }
+
+    private void ResetDamageVisuals()
+    {
+        SetAlpha(damageOverlay, 0f);
+        SetAlpha(woundMarks, 0f);
+        SetAlpha(darkOverlay, 0f);
     }
 
     private void Die()
     {
         isDead = true;
 
-        if (damageOverlay != null)
-            SetAlpha(damageOverlay, 0f);
+        if (recoveryCoroutine != null)
+        {
+            StopCoroutine(recoveryCoroutine);
+            recoveryCoroutine = null;
+        }
 
-        if (woundMarks != null)
-            SetAlpha(woundMarks, 0f);
-
-        if (darkOverlay != null)
-            SetAlpha(darkOverlay, 1f);
+        SetAlpha(damageOverlay, 0f);
+        SetAlpha(woundMarks, 0f);
+        SetAlpha(darkOverlay, 1f);
 
         if (deathPanel != null)
             deathPanel.SetActive(true);
+        else
+            Debug.LogWarning("No asignaste Death Panel en PlayerHealth.");
 
         foreach (MonoBehaviour control in controlsToDisable)
         {
             if (control != null)
                 control.enabled = false;
         }
-
-        Debug.Log("El jugador ha muerto.");
     }
 
-    private void SetAlpha(Image image, float alpha)
+    private static void SetAlpha(Image image, float alpha)
     {
+        if (image == null)
+            return;
+
         Color color = image.color;
         color.a = alpha;
         image.color = color;

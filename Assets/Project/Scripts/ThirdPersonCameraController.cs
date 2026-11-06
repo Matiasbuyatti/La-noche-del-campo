@@ -1,4 +1,3 @@
-
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -29,7 +28,15 @@ public class ThirdPersonCameraController : MonoBehaviour
     private void Start()
     {
         yaw = transform.eulerAngles.y;
-        pitch = 10f;
+    }
+
+    private void Update()
+    {
+        if (Keyboard.current != null && Keyboard.current.escapeKey.wasPressedThisFrame)
+        {
+            Cursor.lockState = CursorLockMode.None;
+            Cursor.visible = true;
+        }
     }
 
     private void LateUpdate()
@@ -37,34 +44,22 @@ public class ThirdPersonCameraController : MonoBehaviour
         if (player == null)
             return;
 
-        // Mantiene el objetivo a la altura del torso/cabeza.
-        transform.position =
-            player.position + Vector3.up * targetHeight;
+        transform.position = player.position + Vector3.up * targetHeight;
 
-        // El ratón utiliza delta, sin multiplicar por deltaTime.
-        yaw += mouseDelta.x * mouseSensitivity;
-        pitch -= mouseDelta.y * mouseSensitivity;
+        // El mouse es un delta por frame: no se multiplica por deltaTime. El stick sí.
+        yaw += mouseDelta.x * mouseSensitivity + gamepadLook.x * gamepadSensitivity * Time.deltaTime;
+        pitch -= mouseDelta.y * mouseSensitivity + gamepadLook.y * gamepadSensitivity * Time.deltaTime;
         mouseDelta = Vector2.zero;
 
-        // El stick del mando es una entrada continua.
-        yaw += gamepadLook.x
-            * gamepadSensitivity * Time.deltaTime;
-
-        pitch -= gamepadLook.y
-            * gamepadSensitivity * Time.deltaTime;
-
         pitch = Mathf.Clamp(pitch, minPitch, maxPitch);
-
-        transform.rotation = Quaternion.Euler(
-            pitch, yaw, 0f);
+        transform.rotation = Quaternion.Euler(pitch, yaw, 0f);
     }
 
     public void OnLook(InputAction.CallbackContext context)
     {
         Vector2 value = context.ReadValue<Vector2>();
 
-        if (context.control != null &&
-            context.control.device is Mouse)
+        if (context.control != null && context.control.device is Mouse)
         {
             if (context.performed)
                 mouseDelta += value;
@@ -72,23 +67,6 @@ public class ThirdPersonCameraController : MonoBehaviour
         else
         {
             gamepadLook = value;
-        }
-    }
-
-    private void Update()
-    {
-        if (Keyboard.current != null &&
-            Keyboard.current.escapeKey.wasPressedThisFrame)
-        {
-            Cursor.lockState = CursorLockMode.None;
-            Cursor.visible = true;
-        }
-
-        if (Mouse.current != null &&
-            Mouse.current.leftButton.wasPressedThisFrame)
-        {
-            Cursor.lockState = CursorLockMode.Locked;
-            Cursor.visible = false;
         }
     }
 }

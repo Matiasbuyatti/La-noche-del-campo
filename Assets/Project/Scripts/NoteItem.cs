@@ -1,3 +1,4 @@
+
 using UnityEngine;
 
 public class NoteItem : CollectibleItem
@@ -8,6 +9,9 @@ public class NoteItem : CollectibleItem
     [TextArea(5, 15)]
     [SerializeField] private string noteContent;
 
+    [Header("Audio")]
+    [SerializeField] private AudioClip vozNota;
+
     public string NoteTitle => noteTitle;
     public string NoteContent => noteContent;
 
@@ -16,8 +20,11 @@ public class NoteItem : CollectibleItem
         if (Collected)
             return;
 
-        Debug.Log("Nota encontrada: " + noteTitle);
-
         base.Collect();
+
+        if (Collected)
+        {
+            AudioJuego.NotaRecogida(vozNota);
+        }
     }
 }

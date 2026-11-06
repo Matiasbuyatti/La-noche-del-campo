@@ -14,6 +14,9 @@ public class FlashlightItem : MonoBehaviour
     [SerializeField] private Collider pickupCollider;
     [SerializeField] private Rigidbody flashlightRigidbody;
 
+    [Header("Audio")]
+    [SerializeField] private SfxVariado sfxLinterna;
+
     [Header("Estado inicial")]
     [SerializeField] private bool startsOnGround = true;
 
@@ -127,6 +130,9 @@ public class FlashlightItem : MonoBehaviour
             return;
 
         torchController.ToggleLightState();
+
+        if (sfxLinterna != null)
+            sfxLinterna.Reproducir();
     }
 
     public void SetLight(bool isOn)
@@ -140,7 +146,13 @@ public class FlashlightItem : MonoBehaviour
         if (torchController != null)
             torchController.AddBattery(amount);
     }
+    public bool TryAddBattery(float amount)
+    {
+        if (torchController == null)
+            return false;
 
+        return torchController.TryAddBattery(amount);
+    }
     private void UpdatePhysics()
     {
         bool onGround = State == FlashlightState.OnGround;
